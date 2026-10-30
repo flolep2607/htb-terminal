@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from htb_terminal.http import ApiError, HtbApiClient
+from htb_terminal.services.challenges import extract_archive
 from htb_terminal.services.paging import PageCache, cache_key, default_cache_path, paginate_rows
 from htb_terminal.services.payloads import difficulty_slug, extract_items, to_int
 
@@ -167,6 +168,71 @@ class SherlockService:
         if not isinstance(data, dict):
             raise RuntimeError(f"Could not read sherlock {sherlock_id} from /sherlocks/<id>.")
         return payload
+
+    def info(self, sherlock_id: int | str) -> dict[str, Any]:
+        """Show one Sherlock's metadata, including the archive password.
+
+        ``file_password`` matters: recent Sherlocks ship ``hacktheblue`` instead of
+        the usual ``hackthebox``, and unzipping with the wrong one only says
+        "unsupported compression method".
+        """
+        sid = int(sherlock_id)
+        data = self.info_raw(sid)["data"]
+        return {
+            "sherlock_id": sid,
+            "name": data.get("name"),
+            "difficulty": data.get("difficulty"),
+            "state": data.get("state"),
+            "category": data.get("category_name"),
+            "experience_points": data.get("experience_points"),
+            "rating": data.get("rating"),
+            "rating_count": data.get("rating_count"),
+            "play_methods": data.get("play_methods"),
+            "file_password": data.get("file_password") or "hackthebox",
+            "release_at": data.get("release_at"),
+        }
+
+    def download(
+        self,
+        sherlock_id: int | str,
+        *,
+        out: Path | None = None,
+        extract: bool = False,
+        password: str | None = None,
+    ) -> dict[str, Any]:
+        """Download a Sherlock archive.
+
+        The API route exists but currently answers 404
+        ``{"message": "Sherlock file not found."}`` for every id tested (owned and
+        unowned, released and not), so this raises an actionable error instead of
+        pretending the file is missing locally.
+        """
+        sid = int(sherlock_id)
+        info = self.info(sid)
+        destination = Path(out) if out else Path(f"challenges/sherlock-{sid}/sherlock-{sid}.zip")
+        try:
+            location = self.client.presigned_location(f"/sherlocks/{sid}/download")
+        except ApiError as exc:
+            raise RuntimeError(
+                f"HTB does not serve a Sherlock archive over the API for id {sid}"
+                f" ({exc}). The endpoint /sherlocks/{sid}/download answers"
+                " 'Sherlock file not found.' for every id, so the archive has to be"
+                " fetched from the web UI while signed in (app.hackthebox.com has no"
+                " public download route either). Use 'htb sherlock info "
+                f"{sid}' to get the password"
+                f" ({info['file_password']}) once you have the zip."
+            ) from exc
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        size = self.client.fetch_to_file(location, destination)
+        result: dict[str, Any] = {
+            "sherlock_id": sid,
+            "output": str(destination),
+            "size": size,
+            "password": password or info["file_password"],
+        }
+        if extract:
+            result.update(extract_archive(destination, result["password"]))
+        return result
 
     def tasks(self, sherlock_id: int | str, *, include_hints: bool = False) -> dict[str, Any]:
         """List a Sherlock's tasks (ids, questions, answer format)."""

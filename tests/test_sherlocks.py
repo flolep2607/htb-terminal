@@ -85,6 +85,13 @@ class StubClient:
         self.posts: list[tuple[str, dict[str, Any] | None]] = []
         self.post_error: Exception | None = None
         self.post_response: Any = {"message": "Correct answer!"}
+        self.info_payload: Any = {"data": {"id": 631, "name": "Sherlock 631"}}
+        self.presign_error: Exception | None = None
+
+    def presigned_location(self, path: str) -> str:
+        if self.presign_error is not None:
+            raise self.presign_error
+        return "https://example.invalid/file.zip"
 
     def get(self, path: str, query: dict[str, Any] | None = None, *, version: str | None = None) -> Any:
         if path == "/sherlocks":
@@ -94,6 +101,8 @@ class StubClient:
             if isinstance(value, Exception):
                 raise value
             return value
+        if path.startswith("/sherlocks/") and path.count("/") == 2:
+            return self.info_payload
         if path.endswith("/tasks"):
             return self.tasks_payload
         if path.endswith("/progress"):
@@ -168,6 +177,44 @@ class SherlockListTests(SherlockTestCase):
 
         self.assertEqual([4], [row["id"] for row in result["sherlocks"]])
         self.assertIn("cached copy", errors.getvalue())
+
+
+class SherlockInfoTests(SherlockTestCase):
+    def test_info_reports_the_archive_password(self) -> None:
+        client = StubClient()
+        client.info_payload = {
+            "data": {
+                "id": 1917,
+                "name": "ShellForSell",
+                "difficulty": "Easy",
+                "state": "active",
+                "category_name": "DFIR",
+                "experience_points": 591,
+                "play_methods": ["download"],
+                "file_password": "hacktheblue",
+            }
+        }
+        result = self.service(client).info(1917)
+
+        self.assertEqual("hacktheblue", result["file_password"])
+        self.assertEqual(591, result["experience_points"])
+
+    def test_missing_password_defaults_to_hackthebox(self) -> None:
+        client = StubClient()
+        client.info_payload = {"data": {"id": 1, "name": "x", "file_password": None}}
+        self.assertEqual("hackthebox", self.service(client).info(1)["file_password"])
+
+    def test_download_explains_the_missing_route_instead_of_claiming_absence(self) -> None:
+        client = StubClient()
+        client.info_payload = {"data": {"id": 1, "name": "x", "file_password": "hacktheblue"}}
+        client.presign_error = ApiError(404, "HTTP 404: Sherlock file not found.")
+
+        with self.assertRaises(RuntimeError) as ctx:
+            self.service(client).download(1)
+
+        message = str(ctx.exception)
+        self.assertIn("Sherlock file not found", message)
+        self.assertIn("web UI", message)
 
 
 class SherlockTaskTests(SherlockTestCase):

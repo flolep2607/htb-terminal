@@ -246,6 +246,16 @@ def challenge_start(args: argparse.Namespace, client: HtbApiClient) -> Any:
         force=args.force,
         wait=args.wait,
         interval=args.interval,
+        probe=getattr(args, "probe", 0),
+    )
+
+
+def challenge_restart(args: argparse.Namespace, client: HtbApiClient) -> Any:
+    return _challenge_service(client).restart(
+        args.id,
+        wait=args.wait,
+        interval=args.interval,
+        probe=getattr(args, "probe", 0),
     )
 
 
@@ -319,6 +329,19 @@ def sherlock_tasks(args: argparse.Namespace, client: HtbApiClient) -> Any:
 
 def sherlock_answer(args: argparse.Namespace, client: HtbApiClient) -> Any:
     return _sherlock_service(client).answer(args.id, args.task_id, args.answer)
+
+
+def sherlock_info(args: argparse.Namespace, client: HtbApiClient) -> Any:
+    return _sherlock_service(client).info(args.id)
+
+
+def sherlock_download(args: argparse.Namespace, client: HtbApiClient) -> Any:
+    return _sherlock_service(client).download(
+        args.id,
+        out=args.out,
+        extract=args.extract,
+        password=args.password,
+    )
 
 
 def sherlock_progress(args: argparse.Namespace, client: HtbApiClient) -> Any:

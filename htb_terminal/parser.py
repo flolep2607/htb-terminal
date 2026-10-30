@@ -392,7 +392,27 @@ def _add_challenge_commands(subparsers: _SubParsers, common: argparse.ArgumentPa
         metavar="SECONDS",
         help="Poll interval while the container boots. Default 5.",
     )
+    start.add_argument(
+        "--probe",
+        type=_positive_int,
+        default=0,
+        metavar="SECONDS",
+        help="After ready, wait until a port really accepts TCP (0 = skip)."
+        " play_info says ready before the service is listening.",
+    )
     start.set_defaults(handler=handlers.challenge_start)
+
+    restart = _leaf(
+        challenge_sub,
+        "restart",
+        common,
+        help="Stop then start a container, giving a fresh ip:port.",
+    )
+    restart.add_argument("id", type=_positive_int)
+    restart.add_argument("--wait", type=_positive_int, default=180, metavar="SECONDS")
+    restart.add_argument("--interval", type=_positive_int, default=5, metavar="SECONDS")
+    restart.add_argument("--probe", type=_positive_int, default=0, metavar="SECONDS")
+    restart.set_defaults(handler=handlers.challenge_restart)
 
     stop = _leaf(
         challenge_sub,
@@ -465,6 +485,31 @@ def _add_sherlock_commands(subparsers: _SubParsers, common: argparse.ArgumentPar
     answer.add_argument("task_id", type=_positive_int)
     answer.add_argument("answer", help="The graded answer string.")
     answer.set_defaults(handler=handlers.sherlock_answer)
+
+    info = _leaf(
+        sherlock_sub,
+        "info",
+        common,
+        help="Show one Sherlock's metadata, including the archive password.",
+    )
+    info.add_argument("id", type=_positive_int)
+    info.set_defaults(handler=handlers.sherlock_info)
+
+    dl = _leaf(
+        sherlock_sub,
+        "download",
+        common,
+        help="Download a Sherlock archive (API currently answers file-not-found).",
+    )
+    dl.add_argument("id", type=_positive_int)
+    dl.add_argument("-o", "--out", type=Path, default=None, help="Output zip path.")
+    dl.add_argument("--extract", action="store_true", help="Extract after download.")
+    dl.add_argument(
+        "--password",
+        default=None,
+        help="Archive password. Defaults to the instance's file_password.",
+    )
+    dl.set_defaults(handler=handlers.sherlock_download)
 
     progress = _leaf(
         sherlock_sub,

@@ -8,6 +8,7 @@ state, and the container bookkeeping lives in :mod:`htb_terminal.containers`.
 from __future__ import annotations
 
 import html
+import socket
 import sys
 import time
 import zipfile
@@ -142,6 +143,37 @@ def challenge_summary(challenge: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def probe_port(ip: str | None, ports: Any, timeout: float) -> dict[str, Any]:
+    """Wait until one of ``ports`` accepts a TCP connection.
+
+    ``play_info.status == "ready"`` means the orchestrator finished, not that the
+    service inside is listening yet -- a freshly started container can refuse
+    connections for a while, and on a bad day never come up at all. Waiting for a
+    real TCP accept turns that into a clear result instead of an exploit that
+    "hangs for no reason".
+    """
+    wanted = [int(port) for port in (ports or []) if str(port).isdigit()]
+    if not ip or not wanted:
+        return {"probed": False, "reason": "no ip/ports published"}
+    deadline = time.monotonic() + timeout
+    last_error = "no attempt"
+    while True:
+        for port in wanted:
+            try:
+                with socket.create_connection((ip, port), timeout=3):
+                    return {"probed": True, "port": port, "open": True}
+            except OSError as exc:
+                last_error = str(exc)
+        if time.monotonic() + 2 > deadline:
+            return {
+                "probed": True,
+                "open": False,
+                "ports": wanted,
+                "reason": f"no port accepted a connection within {timeout}s (last: {last_error})",
+            }
+        time.sleep(2)
+
+
 def human_size(value: int | None) -> str | None:
     if value is None:
         return None
@@ -274,6 +306,7 @@ class ChallengeService:
         force: bool = False,
         wait: int = 180,
         interval: int = 5,
+        probe: int = 0,
     ) -> dict[str, Any]:
         """Start one container, enforcing the single running instance rule."""
         cid = int(challenge_id)
@@ -315,7 +348,7 @@ class ChallengeService:
             expires_at=play_info.get("expires_at"),
         )
         store.track(entry)
-        return {
+        result = {
             "challenge_id": cid,
             "status": entry.status,
             "ip": entry.ip,
@@ -324,6 +357,30 @@ class ChallengeService:
             "expires_in": relative_expiry(entry.expires_at),
             "message": _message(response),
         }
+        if probe:
+            result["probe"] = probe_port(entry.ip, entry.ports, probe)
+        return result
+
+    def restart(
+        self,
+        challenge_id: int | str,
+        *,
+        wait: int = 180,
+        interval: int = 5,
+        probe: int = 0,
+    ) -> dict[str, Any]:
+        """Stop then start one container, refreshing the ip:port.
+
+        Ports change on every respawn and a stuck instance keeps answering
+        "connection refused" while still reporting ready, so a restart is the
+        normal recovery move rather than a last resort.
+        """
+        cid = int(challenge_id)
+        try:
+            self.stop(cid)
+        except Exception as exc:  # noqa: BLE001 - a stop failure must not block the start
+            print(f"warning: could not stop challenge {cid}: {exc}", file=sys.stderr)
+        return self.start(cid, wait=wait, interval=interval, probe=probe)
 
     def _wait_ready(self, challenge_id: int, *, wait: int, interval: int) -> dict[str, Any]:
         """Poll ``challenge/info`` until ``play_info.status`` is ready.

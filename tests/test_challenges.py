@@ -545,6 +545,42 @@ class ContainerSlotTests(TmpConfigMixin):
         self.assertEqual("ready", result["status"])
         self.assertEqual([31337], result["ports"])
 
+    def test_start_probe_reports_an_open_port(self) -> None:
+        client = StubClient({}, info={222: self.info_payload(222)})
+        with mock.patch(
+            "htb_terminal.services.challenges.socket.create_connection"
+        ) as connect:
+            result = ChallengeService(client).start(222, probe=10)
+
+        self.assertTrue(result["probe"]["probed"])
+        self.assertTrue(result["probe"]["open"])
+        self.assertEqual(31337, result["probe"]["port"])
+        connect.assert_called()
+
+    def test_start_probe_reports_a_closed_port_without_raising(self) -> None:
+        client = StubClient({}, info={222: self.info_payload(222)})
+        with (
+            mock.patch(
+                "htb_terminal.services.challenges.socket.create_connection",
+                side_effect=OSError("Connection refused"),
+            ),
+            mock.patch("htb_terminal.services.challenges.time.sleep"),
+        ):
+            result = ChallengeService(client).start(222, probe=1)
+
+        self.assertFalse(result["probe"]["open"])
+        self.assertIn("refused", result["probe"]["reason"])
+
+    def test_restart_stops_then_starts(self) -> None:
+        client = StubClient({}, info={222: self.info_payload(222)})
+        service = ChallengeService(client)
+        with mock.patch.object(service, "stop") as stop:
+            result = service.restart(222)
+
+        stop.assert_called_once_with(222)
+        self.assertEqual("ready", result["status"])
+        self.assertEqual([31337], result["ports"])
+
     def test_a_timed_out_start_still_holds_the_slot(self) -> None:
         client = StubClient({}, info={222: self.info_payload(222, status=None)})
 
