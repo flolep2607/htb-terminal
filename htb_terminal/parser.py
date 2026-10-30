@@ -185,6 +185,18 @@ def _add_machine_commands(subparsers: _SubParsers, common: argparse.ArgumentPars
     info.add_argument("target")
     info.set_defaults(handler=handlers.machine_profile)
 
+    activity = _leaf(
+        machine_sub, "activity", common, help="Recent owns and bloods for one machine."
+    )
+    activity.add_argument("target")
+    activity.set_defaults(handler=handlers.machine_activity)
+
+    walkthroughs = _leaf(
+        machine_sub, "walkthroughs", common, help="Official walkthroughs (retired boxes only)."
+    )
+    walkthroughs.add_argument("target")
+    walkthroughs.set_defaults(handler=handlers.machine_walkthroughs)
+
     active = _leaf(machine_sub, "active", common, help="Show the active machine.")
     active.add_argument("--details", action="store_true", help="Include synopsis and Academy module names.")
     active.add_argument(
@@ -200,6 +212,17 @@ def _add_machine_commands(subparsers: _SubParsers, common: argparse.ArgumentPars
     list_cmd.add_argument("--todo", action="store_true")
     list_cmd.add_argument("--unreleased", action="store_true")
     list_cmd.add_argument("--sp-tier", type=int, choices=[1, 2, 3], default=None)
+    list_cmd.add_argument(
+        "--difficulty",
+        default=None,
+        help="Only rows with this difficulty (local filter: the endpoint has no such param).",
+    )
+    list_cmd.add_argument(
+        "--os",
+        dest="os_name",
+        default=None,
+        help="Only rows with this OS (local filter).",
+    )
     list_cmd.set_defaults(handler=handlers.machine_list)
 
     search = _leaf(
@@ -336,6 +359,12 @@ def _add_challenge_commands(subparsers: _SubParsers, common: argparse.ArgumentPa
         help="Refetch pages instead of serving them from the 5 minute page cache.",
     )
     list_cmd.set_defaults(handler=handlers.challenge_list)
+
+    activity = _leaf(
+        challenge_sub, "activity", common, help="Recent owns and bloods for one challenge."
+    )
+    activity.add_argument("id", type=_positive_int)
+    activity.set_defaults(handler=handlers.challenge_activity)
 
     info = _leaf(challenge_sub, "info", common, help="Show one challenge and its play state.")
     info.add_argument("id", type=_positive_int)
@@ -670,6 +699,10 @@ def _add_lab_commands(subparsers: _SubParsers, common: argparse.ArgumentParser) 
     )
     machines.add_argument("id", type=_positive_int)
     machines.set_defaults(handler=handlers.prolab_machines)
+    pown = _leaf(prolab_sub, "own", common, help="Submit one Pro Lab flag.")
+    pown.add_argument("id", type=_positive_int)
+    pown.add_argument("--flag", required=True, help="The flag value, for example HTB{...}.")
+    pown.set_defaults(handler=handlers.prolab_own)
 
     fortress = subparsers.add_parser(
         "fortress",
@@ -685,6 +718,10 @@ def _add_lab_commands(subparsers: _SubParsers, common: argparse.ArgumentParser) 
     )
     finfo.add_argument("id", type=_positive_int)
     finfo.set_defaults(handler=handlers.fortress_info)
+    fown = _leaf(fortress_sub, "own", common, help="Submit one fortress flag.")
+    fown.add_argument("id", type=_positive_int)
+    fown.add_argument("--flag", required=True, help="The flag value, for example HTB{...}.")
+    fown.set_defaults(handler=handlers.fortress_own)
 
 
 def _add_progress_commands(subparsers: _SubParsers, common: argparse.ArgumentParser) -> None:

@@ -112,3 +112,26 @@ class ProgressTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class MachineFilterTests(unittest.TestCase):
+    ROWS = [
+        {"id": 1, "name": "A", "os": "Linux", "difficulty": "Easy"},
+        {"id": 2, "name": "B", "os": "Windows", "difficulty": "Insane"},
+        {"id": 3, "name": "C", "os": "Linux", "difficulty": "Easy"},
+    ]
+
+    def test_difficulty_filter_is_case_insensitive(self) -> None:
+        from htb_terminal.handlers import _filter_machine_rows
+
+        self.assertEqual([1, 3], [row["id"] for row in _filter_machine_rows(self.ROWS, difficulty="easy")])
+
+    def test_os_filter(self) -> None:
+        from htb_terminal.handlers import _filter_machine_rows
+
+        self.assertEqual([2], [row["id"] for row in _filter_machine_rows(self.ROWS, os_name="Windows")])
+
+    def test_no_filter_returns_everything(self) -> None:
+        from htb_terminal.handlers import _filter_machine_rows
+
+        self.assertEqual(3, len(_filter_machine_rows(self.ROWS)))

@@ -180,3 +180,49 @@ class LabDetailTests(unittest.TestCase):
         self.assertEqual(2, result["total"])
         self.assertEqual(30, result["points_earned"])
         self.assertEqual(60, result["points_total"])
+
+
+class _PostClient:
+    def __init__(self, response: Any = None, error: Exception | None = None):
+        self.response = response if response is not None else {"message": "Correct flag!"}
+        self.error = error
+        self.posts: list[tuple[str, dict[str, Any] | None]] = []
+
+    def post(self, path: str, payload: dict[str, Any] | None = None) -> Any:
+        self.posts.append((path, payload))
+        if self.error is not None:
+            raise self.error
+        return self.response
+
+
+class FlagSubmissionTests(unittest.TestCase):
+    def test_fortress_flag_posts_to_the_fortress_route(self) -> None:
+        client = _PostClient()
+        result = LabService(client).own_fortress_flag(7, "HTB{test}")
+
+        self.assertEqual("/fortress/7/flag", client.posts[0][0])
+        self.assertEqual({"flag": "HTB{test}"}, client.posts[0][1])
+        self.assertTrue(result["accepted"])
+
+    def test_prolab_flag_posts_to_the_prolab_route(self) -> None:
+        client = _PostClient({"message": "Correct flag"})
+        result = LabService(client).own_lab_flag(22, "HTB{test}")
+
+        self.assertEqual("/prolab/22/flag", client.posts[0][0])
+        self.assertIn("Correct", result["message"])
+
+    def test_a_rejected_flag_raises_with_the_server_message(self) -> None:
+        client = _PostClient(error=ApiError(400, '{"status": false, "message": "Wrong flag"}'))
+
+        with self.assertRaises(RuntimeError) as ctx:
+            LabService(client).own_fortress_flag(7, "nope")
+
+        self.assertIn("Wrong flag", str(ctx.exception))
+
+    def test_empty_flag_is_refused_before_any_request(self) -> None:
+        client = _PostClient()
+
+        with self.assertRaises(ValueError):
+            LabService(client).own_lab_flag(22, "   ")
+
+        self.assertEqual([], client.posts)

@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from htb_terminal.http import HtbApiClient
+from htb_terminal.http import ApiError, HtbApiClient
 from htb_terminal.services.payloads import extract_items, to_int
 
 
@@ -121,6 +121,44 @@ class LabService:
         items = extract_items(payload)
         rows = [fortress_row(item) for item in items if isinstance(item, dict)]
         return {"fortresses": rows, "count": len(rows)}
+
+    def own_fortress_flag(self, fortress_id: int | str, flag: str) -> dict[str, Any]:
+        """``POST /fortress/<id>/flag`` -- fortress flags are per-flag, not user/root.
+
+        The server answers ``400 {"status": false, "message": "Wrong flag"}`` for a
+        bad value, so a 2xx here means the flag counted.
+        """
+        fid = int(fortress_id)
+        submitted = flag.strip()
+        if not submitted:
+            raise ValueError("The flag must not be empty.")
+        try:
+            payload = self.client.post(f"/fortress/{fid}/flag", {"flag": submitted})
+        except ApiError as exc:
+            raise RuntimeError(f"Fortress {fid} rejected the flag: {exc}") from exc
+        message = payload.get("message") if isinstance(payload, dict) else None
+        return {
+            "fortress_id": fid,
+            "accepted": True,
+            "message": message or "Flag accepted.",
+        }
+
+    def own_lab_flag(self, lab_id: int | str, flag: str) -> dict[str, Any]:
+        """``POST /prolab/<id>/flag`` -- same shape, different message."""
+        lid = int(lab_id)
+        submitted = flag.strip()
+        if not submitted:
+            raise ValueError("The flag must not be empty.")
+        try:
+            payload = self.client.post(f"/prolab/{lid}/flag", {"flag": submitted})
+        except ApiError as exc:
+            raise RuntimeError(f"Pro Lab {lid} rejected the flag: {exc}") from exc
+        message = payload.get("message") if isinstance(payload, dict) else None
+        return {
+            "lab_id": lid,
+            "accepted": True,
+            "message": message or "Flag accepted.",
+        }
 
     def fortress(self, fortress_id: int | str) -> dict[str, Any]:
         fid = int(fortress_id)

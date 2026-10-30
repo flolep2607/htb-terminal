@@ -260,6 +260,24 @@ class ChallengeService:
         self.cache.store(key, payload)
         return payload, False
 
+    def activity(self, challenge_id: int | str) -> list[dict[str, Any]]:
+        """Recent owns/bloods for one challenge (the route 404s for unknown ids)."""
+        cid = int(challenge_id)
+        payload = self.client.get(f"/challenge/activity/{cid}")
+        info = payload.get("info") if isinstance(payload, dict) else None
+        items = (info or {}).get("activity") or []
+        return [
+            {
+                "date": item.get("date_diff") or item.get("date"),
+                "user": item.get("user_name")
+                or ((item.get("user") or {}).get("name") if isinstance(item.get("user"), dict) else None),
+                "type": item.get("type") or item.get("own_type"),
+                "blood": item.get("blood_type"),
+            }
+            for item in items
+            if isinstance(item, dict)
+        ]
+
     def info_raw(self, challenge_id: int | str) -> dict[str, Any]:
         payload = self.client.get(f"/challenge/info/{int(challenge_id)}")
         challenge = payload.get("challenge") if isinstance(payload, dict) else None

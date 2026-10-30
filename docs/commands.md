@@ -863,3 +863,17 @@ same solved/total numbers.
 
 `prolab` also gained `info` (`/prolab/<id>/info`) and `flags`
 (`/prolab/<id>/flags`, with owned/total points).
+
+## Flag submission and activity
+
+| command | endpoint | notes |
+| --- | --- | --- |
+| `htb fortress own <id> --flag` | `POST /fortress/<id>/flag` | body `{"flag": ...}`; 400 `Wrong flag` on a miss |
+| `htb prolab own <id> --flag` | `POST /prolab/<id>/flag` | 400 `Incorrect flag` on a miss |
+| `htb machine activity <id>` | `GET /machine/activity/<id>` | owns and bloods, newest first |
+| `htb machine walkthroughs <id>` | `GET /machine/walkthroughs/<id>` | 400 unless the box is retired |
+| `htb challenge activity <id>` | `GET /challenge/activity/<id>` | 404 for an unknown id |
+
+`machine list` also takes `--difficulty` and `--os`. Those are **local** filters:
+unlike `challenge list`, the machine list endpoints accept no such query
+parameters, so they apply to the page that was fetched.

@@ -127,15 +127,39 @@ def machine_list(args: argparse.Namespace, client: HtbApiClient) -> Any:
     else:
         payload = service.list_playable(args.page)
 
+    rows = machine_rows(payload)
+    rows = _filter_machine_rows(rows, difficulty=args.difficulty, os_name=args.os_name)
     if args.json:
-        return payload
+        return rows
     print_table(
-        machine_rows(payload),
+        rows,
         ["id", "name", "os", "difficulty", "points", "active", "spawned", "free"],
         color=args.color,
         wide=args.wide,
     )
     return None
+
+
+def _filter_machine_rows(
+    rows: list[dict[str, Any]],
+    *,
+    difficulty: str | None = None,
+    os_name: str | None = None,
+) -> list[dict[str, Any]]:
+    """Local filters for ``machine list``.
+
+    The list endpoints take no difficulty/os query parameters (unlike
+    ``challenge list``, which filters server-side), so these have to be applied to
+    the page after it arrives.
+    """
+    filtered = rows
+    if difficulty:
+        wanted = difficulty.strip().casefold()
+        filtered = [row for row in filtered if str(row.get("difficulty") or "").casefold() == wanted]
+    if os_name:
+        wanted = os_name.strip().casefold()
+        filtered = [row for row in filtered if str(row.get("os") or "").casefold() == wanted]
+    return filtered
 
 
 def machine_search(args: argparse.Namespace, client: HtbApiClient) -> Any:
@@ -659,4 +683,47 @@ def progress_connection(args: argparse.Namespace, client: HtbApiClient) -> Any:
     if args.json:
         return result
     print(f"connected: {'yes' if result['connected'] else 'no'}  ({result.get('state')})")
+    return None
+
+
+def fortress_own(args: argparse.Namespace, client: HtbApiClient) -> Any:
+    return _lab_service(client).own_fortress_flag(args.id, args.flag)
+
+
+def prolab_own(args: argparse.Namespace, client: HtbApiClient) -> Any:
+    return _lab_service(client).own_lab_flag(args.id, args.flag)
+
+
+def machine_activity(args: argparse.Namespace, client: HtbApiClient) -> Any:
+    result = _machine_service(client).activity(args.target)
+    if args.json:
+        return result
+    rows = result
+    print_table(
+        rows,
+        ["date", "user", "type", "blood"],
+        color=args.color,
+        wide=args.wide,
+    )
+    return None
+
+
+def machine_walkthroughs(args: argparse.Namespace, client: HtbApiClient) -> Any:
+    result = _machine_service(client).walkthroughs(args.target)
+    if args.json:
+        return result
+    print_table(result, ["id", "title", "language", "url"], color=args.color, wide=args.wide)
+    return None
+
+
+def challenge_activity(args: argparse.Namespace, client: HtbApiClient) -> Any:
+    result = _challenge_service(client).activity(args.id)
+    if args.json:
+        return result
+    print_table(
+        result,
+        ["date", "user", "type", "blood"],
+        color=args.color,
+        wide=args.wide,
+    )
     return None
