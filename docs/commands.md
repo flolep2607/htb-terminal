@@ -830,3 +830,20 @@ htb raw GET /access/ovpnfile/1/0 -o lab-vpn.ovpn
 
 JSON responses are pretty-printed; non-JSON responses are printed as text.
 With `-o`, the status code and output path are printed instead.
+
+## Pro Labs and Fortresses
+
+Both products are separate from machines and challenges, and both are reached over
+their own VPN profile (`htb vpn`). Neither is spawnable from this client.
+
+| command | endpoint | notes |
+| --- | --- | --- |
+| `htb prolab list` | `GET /prolabs` | machines/flags counts, state (`free`/`paid`), release date |
+| `htb prolab machines <id>` | `GET /prolab/<id>/machines` | machine ids, names, OS |
+| `htb fortress list` | `GET /fortresses` | flag counts and owned progress |
+| `htb fortress info <id>` | `GET /fortress/<id>` | points, ip, company, per-flag points and owned state |
+
+There is no `/prolab/<id>` detail route (it answers 404) and no per-fortress
+machines route, so the list payload is the only source of lab metadata. Fortress
+scoring is by named flags, not user/root pairs: `fortress info` prints each flag
+with its points and a `points: earned/total` line.

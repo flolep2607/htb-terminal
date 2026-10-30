@@ -143,6 +143,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_machine_commands(subparsers, common)
     _add_challenge_commands(subparsers, common)
     _add_sherlock_commands(subparsers, common)
+    _add_lab_commands(subparsers, common)
     _add_vpn_commands(subparsers, common)
     _add_user_commands(subparsers, common)
     _add_speedrun_command(subparsers, common)
@@ -640,3 +641,36 @@ def _add_raw_command(subparsers: _SubParsers, common: argparse.ArgumentParser) -
     raw.add_argument("--data", default=None, help="JSON body for write requests.")
     raw.add_argument("-o", "--output", type=Path, default=None)
     raw.set_defaults(handler=handlers.raw)
+
+
+def _add_lab_commands(subparsers: _SubParsers, common: argparse.ArgumentParser) -> None:
+    prolab = subparsers.add_parser(
+        "prolab",
+        help="List Pro Labs and their machines.",
+        description="Pro Labs are multiplayer networks reached over their own VPN"
+        " profile. There is no /prolab/<id> detail route, so the list payload is the"
+        " only source of lab metadata.",
+    )
+    prolab_sub = prolab.add_subparsers(dest="prolab_command")
+    labs = _leaf(prolab_sub, "list", common, help="List Pro Labs.")
+    labs.set_defaults(handler=handlers.prolab_list)
+    machines = _leaf(
+        prolab_sub, "machines", common, help="List the machines inside one Pro Lab."
+    )
+    machines.add_argument("id", type=_positive_int)
+    machines.set_defaults(handler=handlers.prolab_machines)
+
+    fortress = subparsers.add_parser(
+        "fortress",
+        help="List Fortresses and inspect their flags.",
+        description="A fortress is scored by named flags rather than user/root"
+        " pairs; /fortress/<id> returns them with points and owned state.",
+    )
+    fortress_sub = fortress.add_subparsers(dest="fortress_command")
+    flist = _leaf(fortress_sub, "list", common, help="List Fortresses.")
+    flist.set_defaults(handler=handlers.fortress_list)
+    finfo = _leaf(
+        fortress_sub, "info", common, help="Show one Fortress, its flags, and progress."
+    )
+    finfo.add_argument("id", type=_positive_int)
+    finfo.set_defaults(handler=handlers.fortress_info)

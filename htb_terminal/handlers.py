@@ -34,6 +34,7 @@ from htb_terminal.services.challenges import (
     ChallengeService,
     challenge_summary,
 )
+from htb_terminal.services.labs import LabService
 from htb_terminal.services.machines import MachineService
 from htb_terminal.services.payloads import machine_rows
 from htb_terminal.services.sherlocks import SherlockFilters, SherlockService
@@ -49,6 +50,10 @@ def _machine_service(client: HtbApiClient) -> MachineService:
 
 def _challenge_service(client: HtbApiClient) -> ChallengeService:
     return ChallengeService(client)
+
+
+def _lab_service(client: HtbApiClient) -> LabService:
+    return LabService(client)
 
 
 def _sherlock_service(client: HtbApiClient) -> SherlockService:
@@ -498,3 +503,69 @@ def print_result(value: Any, args: argparse.Namespace) -> None:
             print_pretty(value, color=args.color)
     else:
         print(value)
+
+
+def prolab_list(args: argparse.Namespace, client: HtbApiClient) -> Any:
+    result = _lab_service(client).labs()
+    if args.json:
+        return result
+    print_table(
+        result["labs"],
+        ["id", "name", "machines", "flags", "flags_owned", "state", "release_at"],
+        color=args.color,
+        wide=args.wide,
+    )
+    return None
+
+
+def prolab_machines(args: argparse.Namespace, client: HtbApiClient) -> Any:
+    result = _lab_service(client).lab_machines(args.id)
+    if args.json:
+        return result
+    print_table(
+        result["machines"],
+        ["id", "name", "os"],
+        color=args.color,
+        wide=args.wide,
+    )
+    return None
+
+
+def fortress_list(args: argparse.Namespace, client: HtbApiClient) -> Any:
+    result = _lab_service(client).fortresses()
+    if args.json:
+        return result
+    print_table(
+        result["fortresses"],
+        ["id", "name", "flags", "owned", "progress", "new"],
+        color=args.color,
+        wide=args.wide,
+    )
+    return None
+
+
+def fortress_info(args: argparse.Namespace, client: HtbApiClient) -> Any:
+    result = _lab_service(client).fortress(args.id)
+    if args.json:
+        return result
+    summary = {
+        key: value
+        for key, value in result.items()
+        if key not in {"flags", "description", "company"}
+    }
+    company = result.get("company")
+    if isinstance(company, dict):
+        summary["company"] = company.get("name")
+    print_pretty(summary, color=args.color)
+    print()
+    print_table(
+        result["flags"],
+        ["id", "title", "points", "owned"],
+        color=args.color,
+        wide=args.wide,
+    )
+    print(
+        f"\npoints: {result['points_earned']}/{result['points_total']}"
+        f"  flags: {result['flags_owned']}/{result['flags_total']}"
+    )
+    return None
