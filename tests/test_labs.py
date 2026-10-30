@@ -148,3 +148,35 @@ class LabCliTests(unittest.TestCase):
 
         self.assertEqual(1, code)
         self.assertIn("404", errors.getvalue())
+
+
+LAB_INFO = {
+    "status": True,
+    "data": {"id": 22, "name": "Puppet", "version": "1.0", "pro_machines_count": 3, "pro_flags_count": 4},
+}
+
+LAB_FLAGS = {
+    "status": True,
+    "data": [
+        {"id": 295, "title": "Sleep", "points": 30, "owned": True},
+        {"id": 298, "title": "Nightmare", "points": 30, "owned": False},
+    ],
+}
+
+
+class LabDetailTests(unittest.TestCase):
+    def test_info_uses_the_prolab_info_route(self) -> None:
+        client = StubClient({"/prolab/22/info": LAB_INFO})
+        result = LabService(client).lab_info(22)
+
+        self.assertEqual(["/prolab/22/info"], client.paths)
+        self.assertEqual("Puppet", result["name"])
+        self.assertEqual(3, result["machines"])
+
+    def test_flags_totals_split_owned_and_all(self) -> None:
+        result = LabService(StubClient({"/prolab/22/flags": LAB_FLAGS})).lab_flags(22)
+
+        self.assertEqual(1, result["owned"])
+        self.assertEqual(2, result["total"])
+        self.assertEqual(30, result["points_earned"])
+        self.assertEqual(60, result["points_total"])

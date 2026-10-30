@@ -847,3 +847,19 @@ There is no `/prolab/<id>` detail route (it answers 404) and no per-fortress
 machines route, so the list payload is the only source of lab metadata. Fortress
 scoring is by named flags, not user/root pairs: `fortress info` prints each flag
 with its points and a `points: earned/total` line.
+
+## Progress and submissions
+
+| command | endpoint |
+| --- | --- |
+| `htb progress show` | `/user/info` + `/profile/progress/{machines,challenges,fortress,prolab}/<id>` |
+| `htb progress show machines\|challenges\|fortress\|prolab` | one category |
+| `htb progress submissions machines\|challenges` | `/user/submissions/<kind>` |
+| `htb progress connection` | `/user/connection/status` |
+
+The per-OS route (`/profile/progress/machines/os/<id>`) documented in the public
+Postman collection now answers 404; the aggregate `machines` route carries the
+same solved/total numbers.
+
+`prolab` also gained `info` (`/prolab/<id>/info`) and `flags`
+(`/prolab/<id>/flags`, with owned/total points).

@@ -144,6 +144,7 @@ def build_parser() -> argparse.ArgumentParser:
     _add_challenge_commands(subparsers, common)
     _add_sherlock_commands(subparsers, common)
     _add_lab_commands(subparsers, common)
+    _add_progress_commands(subparsers, common)
     _add_vpn_commands(subparsers, common)
     _add_user_commands(subparsers, common)
     _add_speedrun_command(subparsers, common)
@@ -654,6 +655,16 @@ def _add_lab_commands(subparsers: _SubParsers, common: argparse.ArgumentParser) 
     prolab_sub = prolab.add_subparsers(dest="prolab_command")
     labs = _leaf(prolab_sub, "list", common, help="List Pro Labs.")
     labs.set_defaults(handler=handlers.prolab_list)
+    info = _leaf(
+        prolab_sub, "info", common, help="Show one Pro Lab's detail (entry points, counts)."
+    )
+    info.add_argument("id", type=_positive_int)
+    info.set_defaults(handler=handlers.prolab_info)
+    flags = _leaf(
+        prolab_sub, "flags", common, help="List a Pro Lab's flags with points and ownership."
+    )
+    flags.add_argument("id", type=_positive_int)
+    flags.set_defaults(handler=handlers.prolab_flags)
     machines = _leaf(
         prolab_sub, "machines", common, help="List the machines inside one Pro Lab."
     )
@@ -674,3 +685,38 @@ def _add_lab_commands(subparsers: _SubParsers, common: argparse.ArgumentParser) 
     )
     finfo.add_argument("id", type=_positive_int)
     finfo.set_defaults(handler=handlers.fortress_info)
+
+
+def _add_progress_commands(subparsers: _SubParsers, common: argparse.ArgumentParser) -> None:
+    progress = subparsers.add_parser(
+        "progress",
+        help="Show your own owns, fortress, and Pro Lab progress.",
+        description="Read-only account views. /profile/progress/machines/os/<id> is gone;"
+        " the aggregate routes (/machines, /challenges, /fortress, /prolab) still work.",
+    )
+    progress_sub = progress.add_subparsers(dest="progress_command")
+    show = _leaf(
+        progress_sub,
+        "show",
+        common,
+        help="Summary of machines and challenges, or one category.",
+    )
+    show.add_argument(
+        "kind",
+        nargs="?",
+        choices=["machines", "challenges", "fortress", "prolab"],
+        default=None,
+        help="Omit for a summary of everything.",
+    )
+    show.set_defaults(handler=handlers.progress_show)
+    submissions = _leaf(
+        progress_sub, "submissions", common, help="Your machine or challenge submissions."
+    )
+    submissions.add_argument(
+        "kind", nargs="?", choices=["machines", "challenges"], default="machines"
+    )
+    submissions.set_defaults(handler=handlers.progress_submissions)
+    connection = _leaf(
+        progress_sub, "connection", common, help="VPN/tunnel connection status."
+    )
+    connection.set_defaults(handler=handlers.progress_connection)

@@ -70,6 +70,36 @@ class LabService:
         rows = [lab_row(item) for item in items if isinstance(item, dict)]
         return {"labs": rows, "count": len(rows)}
 
+    def lab_info(self, lab_id: int | str) -> dict[str, Any]:
+        """``/prolab/<id>/info`` -- the detail route the bare /prolab/<id> lacks."""
+        lid = int(lab_id)
+        payload = self.client.get(f"/prolab/{lid}/info")
+        data = payload.get("data") if isinstance(payload, dict) else None
+        if not isinstance(data, dict):
+            raise RuntimeError(f"Could not read lab {lid} from /prolab/<id>/info.")
+        return {
+            "lab_id": lid,
+            "name": data.get("name"),
+            "version": data.get("version"),
+            "entry_points": data.get("entry_points"),
+            "machines": data.get("pro_machines_count") or data.get("machines_count"),
+            "flags": data.get("pro_flags_count") or data.get("flags_count"),
+            "state": data.get("state"),
+        }
+
+    def lab_flags(self, lab_id: int | str) -> dict[str, Any]:
+        lid = int(lab_id)
+        payload = self.client.get(f"/prolab/{lid}/flags")
+        rows = [flag_row(item) for item in extract_items(payload) if isinstance(item, dict)]
+        return {
+            "lab_id": lid,
+            "flags": rows,
+            "owned": sum(1 for row in rows if row.get("owned")),
+            "total": len(rows),
+            "points_earned": sum(row.get("points") or 0 for row in rows if row.get("owned")),
+            "points_total": sum(row.get("points") or 0 for row in rows),
+        }
+
     def lab_machines(self, lab_id: int | str) -> dict[str, Any]:
         lid = int(lab_id)
         payload = self.client.get(f"/prolab/{lid}/machines")

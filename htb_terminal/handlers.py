@@ -37,6 +37,7 @@ from htb_terminal.services.challenges import (
 from htb_terminal.services.labs import LabService
 from htb_terminal.services.machines import MachineService
 from htb_terminal.services.payloads import machine_rows
+from htb_terminal.services.progress import ProgressService
 from htb_terminal.services.sherlocks import SherlockFilters, SherlockService
 from htb_terminal.services.speedrun import SpeedrunService
 from htb_terminal.services.user import UserService
@@ -54,6 +55,10 @@ def _challenge_service(client: HtbApiClient) -> ChallengeService:
 
 def _lab_service(client: HtbApiClient) -> LabService:
     return LabService(client)
+
+
+def _progress_service(client: HtbApiClient) -> ProgressService:
+    return ProgressService(client)
 
 
 def _sherlock_service(client: HtbApiClient) -> SherlockService:
@@ -568,4 +573,90 @@ def fortress_info(args: argparse.Namespace, client: HtbApiClient) -> Any:
         f"\npoints: {result['points_earned']}/{result['points_total']}"
         f"  flags: {result['flags_owned']}/{result['flags_total']}"
     )
+    return None
+
+
+def prolab_info(args: argparse.Namespace, client: HtbApiClient) -> Any:
+    result = _lab_service(client).lab_info(args.id)
+    if args.json:
+        return result
+    print_pretty(result, color=args.color)
+    return None
+
+
+def prolab_flags(args: argparse.Namespace, client: HtbApiClient) -> Any:
+    result = _lab_service(client).lab_flags(args.id)
+    if args.json:
+        return result
+    print_table(
+        result["flags"],
+        ["id", "title", "points", "owned"],
+        color=args.color,
+        wide=args.wide,
+    )
+    print(
+        f"\npoints: {result['points_earned']}/{result['points_total']}"
+        f"  flags: {result['owned']}/{result['total']}"
+    )
+    return None
+
+
+def progress_show(args: argparse.Namespace, client: HtbApiClient) -> Any:
+    service = _progress_service(client)
+    kind = args.kind
+    if kind is None:
+        result = service.summary()
+        if args.json:
+            return result
+        machines = result["machines"]
+        challenges = result["challenges"]
+        print(f"user {result['user_id']}")
+        print(f"  machines    {machines['solved']}/{machines['total']}")
+        print(f"  challenges  {challenges['solved']}/{challenges['total']}")
+        if result["fortresses"]:
+            print("  fortresses")
+            print_table(
+                result["fortresses"],
+                ["id", "name", "flags", "total", "percent"],
+                color=args.color,
+                wide=args.wide,
+            )
+        if result["prolabs"]:
+            print("  pro labs")
+            print_table(
+                result["prolabs"],
+                ["id", "name", "flags", "total", "machines", "percent"],
+                color=args.color,
+                wide=args.wide,
+            )
+        return None
+    result = service.kind(kind)
+    if args.json:
+        return result
+    if kind in ("machines", "challenges"):
+        print(
+            f"{kind}: {result['solved']}/{result['total']}  bloods: {result.get('bloods')}"
+        )
+        return None
+    rows = result.get("fortresses") or result.get("prolabs") or []
+    columns = ["id", "name", "flags", "total", "percent"]
+    if kind == "prolab":
+        columns.insert(4, "machines")
+    print_table(rows, columns, color=args.color, wide=args.wide)
+    return None
+
+
+def progress_submissions(args: argparse.Namespace, client: HtbApiClient) -> Any:
+    result = _progress_service(client).submissions(args.kind)
+    if args.json:
+        return result
+    print_table(result["submissions"], ["id", "name", "type"], color=args.color, wide=args.wide)
+    return None
+
+
+def progress_connection(args: argparse.Namespace, client: HtbApiClient) -> Any:
+    result = _progress_service(client).connection()
+    if args.json:
+        return result
+    print(f"connected: {'yes' if result['connected'] else 'no'}  ({result.get('state')})")
     return None
